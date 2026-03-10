@@ -1,0 +1,54 @@
+services:
+  # --- Monitoreo ---
+  grafana:
+    image: grafana/grafana:latest
+    container_name: tracking-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+
+  # --- Twenty CRM (Alternativa Open Source) ---
+  twenty:
+    image: twentycrm/twenty:latest
+    container_name: tracking-twenty
+    ports:
+      - "3001:3000"
+    environment:
+      - PORT=3000
+      - PG_DATABASE_URL=postgres://twenty:twenty@twenty-db:5432/default
+      - REDIS_URL=redis://twenty-redis:6379
+      - SERVER_URL=http://localhost:3001
+      - FRONTEND_URL=http://localhost:3001
+      # 🚩 Llaves de seguridad obligatorias
+      - SECRET_KEY=f6e8b9a2c3d4e5f6a7b8c9d0e1f2a3b4
+      - APP_SECRET=f6e8b9a2c3d4e5f6a7b8c9d0e1f2a3b4
+    depends_on:
+      twenty-db:
+        condition: service_healthy
+      twenty-redis:
+        condition: service_started
+
+  twenty-db:
+    image: postgres:15-alpine
+    container_name: twenty-db
+    environment:
+      - POSTGRES_USER=twenty
+      - POSTGRES_PASSWORD=twenty
+      - POSTGRES_DB=default
+    volumes:
+      - twenty-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U twenty -d default"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # --- Redis (Caché para Twenty) ---
+  twenty-redis:
+    image: redis:7-alpine
+    container_name: tracking-twenty-redis
+
+volumes:
+  grafana-data:
+  twenty-db-data:
